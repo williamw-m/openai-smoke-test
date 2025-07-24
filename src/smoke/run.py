@@ -5,7 +5,10 @@ import os
 import argparse
 from typing import List
 from statistics import mean
+import sys
 
+from tabulate import tabulate
+import numpy as np
 import openai
 from tqdm.asyncio import tqdm_asyncio  # for async progress bar
 from tqdm import tqdm
@@ -84,6 +87,19 @@ async def run_query(
         pbar.update(1)
 
 
+def stats_summary(values: List[float], label: str) -> List:
+    return (
+        [
+            label,
+            f"{mean(values):.2f}",
+            f"{np.percentile(values, 50):.2f}",
+            f"{np.percentile(values, 90):.2f}",
+        ]
+        if values
+        else [label, "-", "-", "-"]
+    )
+
+
 async def user_session(
     session_id: int,
     sizes: List[int],
@@ -94,22 +110,18 @@ async def user_session(
     openai_client,
     pbar,
 ):
-    tasks = []
     for query_id in range(queries_per_user):
         word_count = random.choice(sizes)
         truncated_text = " ".join(base_text.split()[:word_count])
-        tasks.append(
-            run_query(
-                session_id,
-                query_id,
-                truncated_text,
-                stats,
-                model_name,
-                openai_client,
-                pbar,
-            )
+        await run_query(
+            session_id,
+            query_id,
+            truncated_text,
+            stats,
+            model_name,
+            openai_client,
+            pbar,
         )
-    await asyncio.gather(*tasks)
 
 
 async def async_main(args):
@@ -118,28 +130,36 @@ async def async_main(args):
     with open(args.text_file, "r") as f:
         base_text = f.read()
 
-    openai_client = openai.AsyncOpenAI(api_key=args.api_key)
+    openai_client = openai.AsyncOpenAI(
+        api_key=args.api_key, base_url=args.api_base if args.api_base else None
+    )
+
     stats = []
-    total_queries = args.num_users * args.queries_per_user
-    sizes = generate_even_sizes(total_queries, args.min_words, args.max_words)
+    if args.single_run:
+        print("Running a single test query with 100 words...")
+        sample_text = " ".join(base_text.split()[:100])
+        await run_query(0, 0, sample_text, stats, args.model, openai_client)
+    else:
+        total_queries = args.num_users * args.queries_per_user
+        sizes = generate_even_sizes(total_queries, args.min_words, args.max_words)
 
-    pbar = tqdm(total=total_queries, desc="Running queries")
+        pbar = tqdm(total=total_queries, desc="Running queries")
 
-    tasks = [
-        user_session(
-            i,
-            sizes,
-            stats,
-            args.queries_per_user,
-            base_text,
-            args.model,
-            openai_client,
-            pbar,
-        )
-        for i in range(args.num_users)
-    ]
-    await asyncio.gather(*tasks)
-    pbar.close()
+        tasks = [
+            user_session(
+                i,
+                sizes,
+                stats,
+                args.queries_per_user,
+                base_text,
+                args.model,
+                openai_client,
+                pbar,
+            )
+            for i in range(args.num_users)
+        ]
+        await asyncio.gather(*tasks)
+        pbar.close()
 
     success = all(entry.get("success", False) for entry in stats)
     ttf_times = [
@@ -148,16 +168,27 @@ async def async_main(args):
     tps_speeds = [
         s["tps"] for s in stats if s.get("success") and s.get("tps") is not None
     ]
+    total = len(stats)
+    successes = sum(1 for s in stats if s.get("success"))
+    failures = total - successes
+    table = [
+        stats_summary(ttf_times, "Time to First Token (s)"),
+        stats_summary(tps_speeds, "Tokens per Second"),
+    ]
 
+    errors = [s for s in stats if not s.get("success") and s.get("error")]
     print("\n--- SUMMARY REPORT ---")
-    print(f"Total Queries: {len(stats)}")
-    print(f"Successful Queries: {sum(1 for s in stats if s.get('success'))}")
-    print(f"Failed Queries: {sum(1 for s in stats if not s.get('success'))}")
-    if ttf_times:
-        print(f"Average Time to First Token: {mean(ttf_times):.2f} seconds")
-    if tps_speeds:
-        print(f"Average Tokens Per Second: {mean(tps_speeds):.2f} t/s")
+    print(f"Total Queries: {total}")
+    print(f"Successful Queries: {successes}")
+    print(f"Failed Queries: {failures}")
+    print(tabulate(table, headers=["Metric", "Mean", "P50", "P90"], tablefmt="grid"))
     print("SUCCESS" if success else "FAILURE: Some queries failed")
+    if errors:
+        print("\n--- FIRST ERROR ---")
+        print(f"Session {errors[0]['session']} - Query {errors[0]['query']}")
+        print(f"Error: {errors[0]['error']}")
+
+    return failures
 
 
 def main():
@@ -183,11 +214,23 @@ def main():
         default=os.getenv("OPENAI_API_KEY"),
         help="OpenAI API key",
     )
-    parser.add_argument("--model", type=str, default="gpt-4o", help="OpenAI model name")
+    parser.add_argument(
+        "--api-base",
+        type=str,
+        default=None,
+        help="Optional custom base URL for the OpenAI API endpoint",
+    )
 
+    parser.add_argument(
+        "--single-run",
+        action="store_true",
+        help="Run a single test query with 100 words",
+    )
+
+    parser.add_argument("--model", type=str, default="gpt-4o", help="OpenAI model name")
     args = parser.parse_args()
-    asyncio.run(async_main(args))
+    return asyncio.run(async_main(args))
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
