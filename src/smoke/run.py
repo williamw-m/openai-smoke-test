@@ -10,8 +10,9 @@ import sys
 from tabulate import tabulate
 import numpy as np
 import openai
-from tqdm.asyncio import tqdm_asyncio  # for async progress bar
+from tqdm.asyncio import tqdm_asyncio
 from tqdm import tqdm
+import tiktoken
 
 
 def generate_long_text_file(text_file: str):
@@ -42,6 +43,7 @@ async def run_query(
     stats: List[dict],
     model_name: str,
     openai_client,
+    encoding,
     pbar=None,
 ):
     try:
@@ -53,14 +55,14 @@ async def run_query(
             model=model_name,
             messages=[{"role": "user", "content": f"Summarize the following:\n{text}"}],
             stream=True,
-            max_tokens=500,
+            max_tokens=200,
         )
 
         async for chunk in stream:
             if not first_token_time:
                 first_token_time = time.time()
             content = chunk.choices[0].delta.content or ""
-            token_count += len(content.split())
+            token_count += len(encoding.encode(content))
 
         end_time = time.time()
         stats.append(
@@ -68,8 +70,9 @@ async def run_query(
                 "session": session_id,
                 "query": query_id,
                 "ttft": first_token_time - start_time if first_token_time else None,
-                "tps": token_count / (end_time - (first_token_time or start_time)),
+                "tps": token_count,
                 "success": True,
+                "total_time": end_time - start_time,
             }
         )
 
@@ -108,6 +111,7 @@ async def user_session(
     base_text: str,
     model_name: str,
     openai_client,
+    encoding,
     pbar,
 ):
     for query_id in range(queries_per_user):
@@ -120,6 +124,7 @@ async def user_session(
             stats,
             model_name,
             openai_client,
+            encoding,
             pbar,
         )
 
@@ -134,11 +139,16 @@ async def async_main(args):
         api_key=args.api_key, base_url=args.api_base if args.api_base else None
     )
 
+    try:
+        encoding = tiktoken.encoding_for_model(args.model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+
     stats = []
     if args.single_run:
         print("Running a single test query with 100 words...")
         sample_text = " ".join(base_text.split()[:100])
-        await run_query(0, 0, sample_text, stats, args.model, openai_client)
+        await run_query(0, 0, sample_text, stats, args.model, openai_client, encoding)
     else:
         total_queries = args.num_users * args.queries_per_user
         sizes = generate_even_sizes(total_queries, args.min_words, args.max_words)
@@ -154,6 +164,7 @@ async def async_main(args):
                 base_text,
                 args.model,
                 openai_client,
+                encoding,
                 pbar,
             )
             for i in range(args.num_users)
@@ -165,24 +176,37 @@ async def async_main(args):
     ttf_times = [
         s["ttft"] for s in stats if s.get("success") and s.get("ttft") is not None
     ]
-    tps_speeds = [
-        s["tps"] for s in stats if s.get("success") and s.get("tps") is not None
+    per_query_tps = [
+        s["tps"] / s["total_time"]
+        for s in stats
+        if s.get("success") and s.get("tps") is not None and s.get("total_time")
     ]
+
+    total_tokens = sum(s["tps"] for s in stats if s.get("success"))
+    total_duration = sum(s["total_time"] for s in stats if s.get("success"))
+    global_tps = total_tokens / total_duration if total_duration > 0 else 0
+
     total = len(stats)
     successes = sum(1 for s in stats if s.get("success"))
     failures = total - successes
     table = [
         stats_summary(ttf_times, "Time to First Token (s)"),
-        stats_summary(tps_speeds, "Tokens per Second"),
+        stats_summary(per_query_tps, "Tokens/sec (Per Query)"),
     ]
 
     errors = [s for s in stats if not s.get("success") and s.get("error")]
+
     print("\n--- SUMMARY REPORT ---")
     print(f"Total Queries: {total}")
     print(f"Successful Queries: {successes}")
     print(f"Failed Queries: {failures}")
     print(tabulate(table, headers=["Metric", "Mean", "P50", "P90"], tablefmt="grid"))
+
+    print(
+        f"\nGlobal Throughput: {global_tps:.2f} tokens/sec across {total_duration:.2f} seconds"
+    )
     print("SUCCESS" if success else "FAILURE: Some queries failed")
+
     if errors:
         print("\n--- FIRST ERROR ---")
         print(f"Session {errors[0]['session']} - Query {errors[0]['query']}")
