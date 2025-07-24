@@ -101,7 +101,7 @@ async def user_session(session_id: int, sizes: List[int], stats: List[dict]):
 
 
 # Main
-async def main():
+async def async_main():
     generate_long_text_file()
     stats = []
     sizes = generate_even_sizes(
@@ -129,5 +129,5 @@ async def main():
     print("SUCCESS" if success else "FAILURE: Some queries failed")
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def main():
+    asyncio.run(async_main())
