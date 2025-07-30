@@ -6,6 +6,7 @@ import argparse
 from typing import List
 from statistics import mean
 import sys
+import string
 
 from tabulate import tabulate
 import numpy as np
@@ -15,10 +16,15 @@ from tqdm import tqdm
 import tiktoken
 
 
-def generate_long_text_file(text_file: str):
-    if os.path.exists(text_file):
-        return
+def generate_random_words(count=10, length=10):
+    words = []
+    for _ in range(count):
+        word = "".join(random.choices(string.ascii_lowercase, k=length))
+        words.append(word)
+    return words
 
+
+def generate_long_text_file(text_file: str):
     lorem = (
         "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
         "Vestibulum vel dolor sit amet lacus ultrices ullamcorper. "
@@ -44,8 +50,13 @@ async def run_query(
     model_name: str,
     openai_client,
     encoding,
+    test_rate_limit=False,
+    stop_event: asyncio.Event = None,
     pbar=None,
 ):
+    if stop_event and stop_event.is_set():
+        return
+
     try:
         start_time = time.time()
         first_token_time = None
@@ -59,6 +70,8 @@ async def run_query(
         )
 
         async for chunk in stream:
+            if stop_event and stop_event.is_set():
+                return
             if not first_token_time:
                 first_token_time = time.time()
             content = chunk.choices[0].delta.content or ""
@@ -73,16 +86,26 @@ async def run_query(
                 "tps": token_count,
                 "success": True,
                 "total_time": end_time - start_time,
+                "code": 200,
             }
         )
 
     except Exception as e:
+        code = getattr(e, "code", -1)
+
+        if code == 429 and test_rate_limit:
+            print("Found a 429 error. Rate limiting test passed.")
+            if stop_event:
+                stop_event.set()
+            raise asyncio.CancelledError()
+
         stats.append(
             {
                 "session": session_id,
                 "query": query_id,
                 "error": str(e),
                 "success": False,
+                "code": code,
             }
         )
 
@@ -110,13 +133,27 @@ async def user_session(
     queries_per_user: int,
     base_text: str,
     model_name: str,
+    same_text: bool,
+    same_text_size: int,
     openai_client,
     encoding,
+    test_rate_limit,
     pbar,
+    stop_event: asyncio.Event,
 ):
     for query_id in range(queries_per_user):
-        word_count = random.choice(sizes)
-        truncated_text = " ".join(base_text.split()[:word_count])
+        if stop_event.is_set():
+            return
+
+        if same_text:
+            truncated_text = base_text[:same_text_size]
+        else:
+            word_count = random.choice(sizes) - 100
+            truncated_text_words = base_text.split()[:word_count]
+            truncated_text_words.extend(generate_random_words(10, 10))
+            random.shuffle(truncated_text_words)
+            truncated_text = " ".join(truncated_text_words)
+
         await run_query(
             session_id,
             query_id,
@@ -125,12 +162,15 @@ async def user_session(
             model_name,
             openai_client,
             encoding,
+            test_rate_limit,
+            stop_event,
             pbar,
         )
 
 
 async def async_main(args):
-    generate_long_text_file(args.text_file)
+    if not os.path.exists(args.text_file):
+        generate_long_text_file(args.text_file)
 
     with open(args.text_file, "r") as f:
         base_text = f.read()
@@ -145,17 +185,20 @@ async def async_main(args):
         encoding = tiktoken.get_encoding("cl100k_base")
 
     stats = []
+    stop_event = asyncio.Event()
+
     if args.single_run:
         print("Running a single test query with 100 words...")
         sample_text = " ".join(base_text.split()[:100])
         await run_query(0, 0, sample_text, stats, args.model, openai_client, encoding)
-    else:
-        total_queries = args.num_users * args.queries_per_user
-        sizes = generate_even_sizes(total_queries, args.min_words, args.max_words)
+        return
 
-        pbar = tqdm(total=total_queries, desc="Running queries")
+    total_queries = args.num_users * args.queries_per_user
+    sizes = generate_even_sizes(total_queries, args.min_words, args.max_words)
+    pbar = tqdm(total=total_queries, desc="Running queries")
 
-        tasks = [
+    tasks = [
+        asyncio.create_task(
             user_session(
                 i,
                 sizes,
@@ -163,16 +206,37 @@ async def async_main(args):
                 args.queries_per_user,
                 base_text,
                 args.model,
+                args.same_text,
+                args.same_text_size,
                 openai_client,
                 encoding,
+                args.test_rate_limit,
                 pbar,
+                stop_event,
             )
-            for i in range(args.num_users)
-        ]
-        await asyncio.gather(*tasks)
-        pbar.close()
+        )
+        for i in range(args.num_users)
+    ]
 
-    success = all(entry.get("success", False) for entry in stats)
+    try:
+        await asyncio.gather(*tasks)
+    except asyncio.CancelledError:
+        print("Cancelled remaining tasks due to rate limiting.")
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    pbar.close()
+
+    if args.test_rate_limit:
+        success = any(entry["code"] == 429 for entry in stats)
+        if success:
+            print("Found a 429 error. Rate limiting test passed.")
+            return 0
+        else:
+            print("No 429 error. Rate limiting test failed.")
+            return 1
+
     ttf_times = [
         s["ttft"] for s in stats if s.get("success") and s.get("ttft") is not None
     ]
@@ -201,11 +265,10 @@ async def async_main(args):
     print(f"Successful Queries: {successes}")
     print(f"Failed Queries: {failures}")
     print(tabulate(table, headers=["Metric", "Mean", "P50", "P90"], tablefmt="grid"))
-
     print(
         f"\nGlobal Throughput: {global_tps:.2f} tokens/sec across {total_duration:.2f} seconds"
     )
-    print("SUCCESS" if success else "FAILURE: Some queries failed")
+    print("SUCCESS" if failures == 0 else "FAILURE: Some queries failed")
 
     if errors:
         print("\n--- FIRST ERROR ---")
@@ -217,42 +280,26 @@ async def async_main(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Async OpenAI Query Benchmark")
-    parser.add_argument(
-        "--num-users", type=int, default=20, help="Number of concurrent users"
-    )
-    parser.add_argument(
-        "--queries-per-user", type=int, default=10, help="Number of queries per user"
-    )
-    parser.add_argument(
-        "--min-words", type=int, default=500, help="Minimum number of words per query"
-    )
-    parser.add_argument(
-        "--max-words", type=int, default=5000, help="Maximum number of words per query"
-    )
-    parser.add_argument(
-        "--text-file", type=str, default="long_text.txt", help="Path to base text file"
-    )
-    parser.add_argument(
-        "--api-key",
-        type=str,
-        default=os.getenv("OPENAI_API_KEY"),
-        help="OpenAI API key",
-    )
-    parser.add_argument(
-        "--api-base",
-        type=str,
-        default=None,
-        help="Optional custom base URL for the OpenAI API endpoint",
-    )
-
-    parser.add_argument(
-        "--single-run",
-        action="store_true",
-        help="Run a single test query with 100 words",
-    )
-
-    parser.add_argument("--model", type=str, default="gpt-4o", help="OpenAI model name")
+    parser.add_argument("--num-users", type=int, default=20)
+    parser.add_argument("--queries-per-user", type=int, default=10)
+    parser.add_argument("--same-text", action="store_true", default=False)
+    parser.add_argument("--same-text-size", type=int, default=500)
+    parser.add_argument("--test-rate-limit", action="store_true", default=False)
+    parser.add_argument("--min-words", type=int, default=500)
+    parser.add_argument("--max-words", type=int, default=5000)
+    parser.add_argument("--text-file", type=str, default="long_text.txt")
+    parser.add_argument("--api-key", type=str, default=os.getenv("OPENAI_API_KEY"))
+    parser.add_argument("--api-base", type=str, default=None)
+    parser.add_argument("--single-run", action="store_true")
+    parser.add_argument("--model", type=str, default="gpt-4o")
     args = parser.parse_args()
+
+    if args.test_rate_limit:
+        args.same_text = True
+        args.same_text_size = 10
+        args.num_users = 250
+        args.queries_per_user = 2
+
     return asyncio.run(async_main(args))
 
 
