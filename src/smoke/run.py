@@ -7,6 +7,7 @@ from typing import List
 from statistics import mean
 import sys
 import random
+import string
 
 from tabulate import tabulate
 import numpy as np
@@ -150,7 +151,7 @@ async def user_session(
             word_count = random.choice(sizes) - 100
             truncated_text = base_text.split()[:word_count]
             truncated_text.extend(generate_random_words(10, 10))
-            truncated_text.shuffle()
+            random.shuffle(truncated_text)
             truncated_text = " ".join(truncated_text)
 
         await run_query(
