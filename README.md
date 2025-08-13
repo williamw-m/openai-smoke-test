@@ -43,6 +43,11 @@ Failed Queries: 0
 Successful
 ```
 
+## Usage for Quick Test script
 
+```
+python src/smoke/quick_test.py
+python src/smoke/quick_test.py --config PATH-TO-custom-quick_test_multiturn_config.yaml
+```
 
 
