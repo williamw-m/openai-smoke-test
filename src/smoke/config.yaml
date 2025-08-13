@@ -97,19 +97,17 @@ vendors:
         tokenizer_type: "huggingface"
         tokenizer: "mistralai/Mistral-7B-Instruct-v0.2"
       "Qwen/Qwen3-0.6B-GGUF":
-        uri: "http://localhost:8000/v1/chat/completions"
         temperature: 0.0
         max_tokens: 1000
+        truncate: true
         tokenizer_type: "huggingface"
-        tokenizer: "Qwen/Qwen3-0.6B-GGUF"
+        tokenizer: "Qwen/Qwen3-0.6B"
       "google/gemma-3-1b-it-qat-q4_0-gguf":
-        uri: "http://localhost:8000/v1/chat/completions"
         temperature: 0.0
         max_tokens: 1000
         tokenizer_type: "huggingface"
-        tokenizer: "google/gemma-3-1b-it-qat-q4_0-gguf"
+        tokenizer: "google/gemma-3-1b-it"
       "Qwen/Qwen3-4B-Thinking-2507":
-        uri: "http://localhost:8000/v1/chat/completions"
         temperature: 0.0
         max_tokens: 1000
         tokenizer_type: "huggingface"
