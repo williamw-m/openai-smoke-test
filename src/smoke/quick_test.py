@@ -7,7 +7,7 @@ import os
 import sys
 import time
 from typing import Any, Dict, List, Optional, Union
-import logging
+
 import openai
 import tiktoken
 import yaml
@@ -173,9 +173,6 @@ def truncate_messages(
     retry=tenacity.retry_if_exception_type(
         (RateLimitError, APIConnectionError, APITimeoutError)
     ),
-    before_sleep=tenacity.before_sleep_log(
-        logging.getLogger(__name__), logging.INFO
-    ),
 )
 async def run_quick_test(
     vendor: str,
@@ -285,14 +282,13 @@ async def async_main(args: argparse.Namespace):
     This function orchestrates the entire process:
     1. Loads environment variables and configuration files.
     2. Substitutes prompt variables into message templates.
-    3. Creates and runs all specified tests in parallel using asyncio.
+    3. Creates and runs all specified tests in parallel, with a delay between each.
     4. Gathers the results.
     5. Writes the detailed results to a timestamped CSV file.
     6. Prints a summary report to the console.
 
     Args:
-        args (argparse.Namespace): The parsed command-line arguments, including
-            the path to the test configuration file.
+        args (argparse.Namespace): The parsed command-line arguments.
     """
     load_dotenv()
 
@@ -301,6 +297,8 @@ async def async_main(args: argparse.Namespace):
 
     main_config = load_config(main_config_path)
     quick_test_config = load_config(args.config)
+
+    delay = args.delay if args.delay is not None else quick_test_config.get("delay_between_requests_sec", 0.2)
 
     prompt_vars = quick_test_config.get("prompt_variables", {})
 
@@ -311,13 +309,22 @@ async def async_main(args: argparse.Namespace):
             content = content.replace(f"{{{key}}}", str(value))
         final_messages.append({"role": m["role"], "content": content})
 
-    tasks = [
-        run_quick_test(
-            test["vendor"], model, final_messages, quick_test_config["max_tokens"],
-            quick_test_config["temperature"], main_config,
-        )
-        for test in quick_test_config["tests"] for model in test["models"]
+    tasks = []
+    tests_to_run = [
+        (test["vendor"], model)
+        for test in quick_test_config["tests"]
+        for model in test["models"]
     ]
+
+    for vendor, model in tests_to_run:
+        task = asyncio.create_task(
+            run_quick_test(
+                vendor, model, final_messages, quick_test_config["max_tokens"],
+                quick_test_config["temperature"], main_config
+            )
+        )
+        tasks.append(task)
+        await asyncio.sleep(delay)
 
     results = [
         await future
@@ -357,9 +364,6 @@ async def async_main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
     parser = argparse.ArgumentParser(
         description="Run quick performance tests against various LLM vendors."
     )
@@ -371,6 +375,12 @@ if __name__ == "__main__":
         type=str,
         default=default_config_path,
         help="Path to the test configuration YAML file. Defaults to 'quick_test_config.yaml' next to the script.",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=None,
+        help="Seconds to wait between launching each test. Overrides the config file setting.",
     )
     args = parser.parse_args()
     asyncio.run(async_main(args))

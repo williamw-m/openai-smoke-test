@@ -8,6 +8,7 @@ prompt_variables:
 # --- Test Settings ---
 max_tokens: 2000
 temperature: 0.1
+delay_between_requests_sec: 0.2 # Wait 200ms between starting each test
 
 # --- Message Templates ---
 # Define the conversation structure. Use {variable_name} for templates.
@@ -57,7 +58,7 @@ tests:
       - "openai/gpt-oss-120B"
       # - "Qwen/Qwen3-235B-A22B-fp8-tput"
       # - "zai-org/GLM-4.5-Air-FP8"
-      - "deepseek-ai/DeepSeek-R1"
+      # - "deepseek-ai/DeepSeek-R1"
   - vendor: "groq"
     models:
       - "openai/gpt-oss-20b"
