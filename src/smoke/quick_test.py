@@ -7,9 +7,12 @@ import os
 import sys
 import time
 from typing import Any, Dict, List, Optional, Union
+import logging
 import openai
 import tiktoken
 import yaml
+import tenacity
+from openai import RateLimitError, APIConnectionError, APITimeoutError
 from pydantic import BaseModel
 from tabulate import tabulate
 from tqdm import tqdm
@@ -164,6 +167,16 @@ def truncate_messages(
     return messages
 
 
+@tenacity.retry(
+    wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=60),
+    stop=tenacity.stop_after_attempt(5),
+    retry=tenacity.retry_if_exception_type(
+        (RateLimitError, APIConnectionError, APITimeoutError)
+    ),
+    before_sleep=tenacity.before_sleep_log(
+        logging.getLogger(__name__), logging.INFO
+    ),
+)
 async def run_quick_test(
     vendor: str,
     model_name: str,
@@ -172,11 +185,16 @@ async def run_quick_test(
     temperature: float,
     main_config: dict,
 ) -> Dict[str, Any]:
-    """Runs a single performance test against a specified model.
+    """Runs a single performance test against a specified model with retry logic.
 
     This function sends a request to the specified vendor's model, streams the
-    response, and calculates performance metrics like time-to-first-token (TTFT)
-    and tokens-per-second (TPS).
+    response, and calculates performance metrics. It automatically retries on
+    common transient API errors like rate limits and connection issues.
+
+    Note:
+        The reported `time duration` measures the wall-clock time for the final,
+        successful attempt only; it does not include the time spent on previous,
+        failed attempts.
 
     Args:
         vendor (str): The name of the vendor (e.g., "groq").
@@ -187,24 +205,17 @@ async def run_quick_test(
         main_config (dict): The main configuration dict containing all vendor info.
 
     Returns:
-        Dict[str, Any]: A dictionary containing the test results, including
-        performance metrics, the generated output, and any errors encountered.
-        Example success:
-        {
-            "vendor": "groq", "model": "llama3-8b-8192", "success": True,
-            "input": "[...]", "output": "...", "tps": 250.0, "time duration": 2.0
-        }
-        Example failure:
-        {
-            "vendor": "groq", "model": "llama3-8b-8192", "success": False,
-            "error": "APIConnectionError: ...", "input": "[...]"
-        }
+        Dict[str, Any]: A dictionary containing the test results.
     """
-    result: Dict[str, Any] = {
+    result = {
         "vendor": vendor,
         "model": model_name,
         "input": json.dumps(messages),
+        "output": "",
+        "tps": 0.0,
+        "time duration": 0.0,
         "success": False,
+        "error": None
     }
     try:
         vendor_config = get_vendor_config(vendor, main_config)
@@ -223,7 +234,6 @@ async def run_quick_test(
         )
 
         start_time = time.time()
-        first_token_time = None
         generated_text = ""
         usage = None
 
@@ -239,8 +249,6 @@ async def run_quick_test(
             if chunk.usage:
                 usage = chunk.usage
             if chunk.choices and chunk.choices[0].delta.content:
-                if not first_token_time:
-                    first_token_time = time.time()
                 generated_text += chunk.choices[0].delta.content
 
         total_time = time.time() - start_time
@@ -258,11 +266,16 @@ async def run_quick_test(
         tps = (usage.completion_tokens / total_time) if usage and total_time > 0 else 0
 
         result.update({
-            "success": True, "output": generated_text, "time duration": total_time,
-            "tps": tps, "ttft_sec": first_token_time - start_time if first_token_time else None,
+            "success": True,
+            "output": generated_text,
+            "time duration": total_time,
+            "tps": tps,
         })
     except Exception as e:
-        result["error"] = str(e)
+        error_message = str(e)
+        result["error"] = error_message
+        result["output"] = f"Error: {error_message}"
+
     return result
 
 
@@ -316,10 +329,16 @@ async def async_main(args: argparse.Namespace):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_filename = f"result_quick_test_{timestamp}.csv"
     csv_headers = ["vendor", "model", "input", "output", "tps", "time duration"]
+
     with open(csv_filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=csv_headers, extrasaction='ignore')
         writer.writeheader()
-        writer.writerows(sorted(results, key=lambda r: (r["vendor"], r["model"])))
+        for res in sorted(results, key=lambda r: (r["vendor"], r["model"])):
+            res_to_write = res.copy()
+            res_to_write['tps'] = f"{res.get('tps', 0.0):.2f}"
+            res_to_write['time duration'] = f"{res.get('time duration', 0.0):.2f}"
+            writer.writerow(res_to_write)
+
     print(f"\nResults saved to {csv_filename}")
 
     # Console Summary
@@ -338,7 +357,9 @@ async def async_main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    # This block handles parsing command-line arguments and launching the async main function.
+    import logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(
         description="Run quick performance tests against various LLM vendors."
     )
