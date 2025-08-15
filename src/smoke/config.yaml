@@ -86,6 +86,14 @@ vendors:
         truncate: true
         max_tokens: 1500
 
+  cerebras:
+    api_key_env: CEREBRAS_API_KEY
+    api_base: "https://api.cerebras.ai/v1"
+    model_config:
+      "gpt-oss-120b":
+        tokenizer_type: "huggingface"
+        tokenizer: "openai/gpt-oss-120b"
+
   ollama:
     api_key_env: OLLAMA_API_KEY
     api_base: "http://localhost:11434/v1"

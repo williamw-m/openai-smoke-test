@@ -46,8 +46,8 @@ class ModelConfig(BaseModel):
 
     tokenizer_type: str = "tiktoken"
     tokenizer: Optional[str] = None
-    n_ctx: int = 8192
-    max_tokens: int = 1024
+    n_ctx: Optional[int] = None
+    max_tokens: Optional[int] = None
     truncate: bool = False
     temperature: float = 0.0
 
@@ -258,36 +258,46 @@ def setup_tokenizer(
 
 
 def truncate_context(
-    context: str,
+    user_content: str,
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Any],
     model_config: ModelConfig,
     system_prompt: str,
-    user_prompt_template: str,
+    max_tokens: int,
 ) -> str:
-    """Truncate the context to fit within the model's context window.
+    """Truncate the user_content to fit within the model's context window.
 
     Args:
-        context: The input context to truncate.
+        user_content: The user content to truncate.
         tokenizer: The tokenizer to use for encoding.
         model_config: The model's configuration.
         system_prompt: The system prompt.
-        user_prompt_template: The user prompt template.
+        max_tokens: The maximum number of tokens for the generation.
 
     Returns:
         The truncated context.
     """
-    n_ctx = model_config.n_ctx
-    max_tokens = model_config.max_tokens
+    if model_config.truncate and max_tokens is None:
+        raise ValueError(
+            "Cannot truncate context: truncate=True but max_tokens not provided. "
+            "Please set max_tokens in model config or disable truncate."
+        )
+
+    if not model_config.truncate:
+        return user_content
+
     system_tokens_length = len(tokenizer.encode(system_prompt))
-    prompt_frame = user_prompt_template.replace("{text}", "")
-    user_prompt_tokens_length = len(tokenizer.encode(prompt_frame))
-    available = n_ctx - (
-        system_tokens_length + user_prompt_tokens_length + max_tokens + 50
-    )
-    encoded_context = tokenizer.encode(context)
+    available = max_tokens - (system_tokens_length + 50)
+
+    if model_config.n_ctx:
+        available = min(
+            available, model_config.n_ctx - (system_tokens_length + max_tokens + 50)
+        )
+
+    encoded_context = tokenizer.encode(user_content)
     if len(encoded_context) > available:
-        context = tokenizer.decode(encoded_context[:available])
-    return context
+        user_content = tokenizer.decode(encoded_context[:available])
+
+    return user_content
 
 
 async def run_query(
@@ -330,7 +340,11 @@ async def run_query(
 
     if model_config.truncate:
         user_content = truncate_context(
-            user_content, tokenizer, model_config, system_prompt, user_prompt_template
+            user_content,
+            tokenizer,
+            model_config,
+            system_prompt,
+            max_tokens,
         )
 
     messages = [
