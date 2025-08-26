@@ -43,6 +43,21 @@ Failed Queries: 0
 Successful
 ```
 
+## Usage of Inference Test Script
+
+### Setup API keys via .env file or env variables
+`export MY_VENDOR_API_KEY="your-secret-api-key"`
+
+```
+python src/smoke/inference_test.py \
+    --model "model-x" \
+    --vendor "my_vendor" \
+    --feature "summarization" \
+    --quality-test-csv "src/smoke/900_sample_goldenfox.csv" \
+    --quality-test-csv-column "text" \
+    --num-users 1
+```
+
 ## Usage for Quick Test script
 
 ```
