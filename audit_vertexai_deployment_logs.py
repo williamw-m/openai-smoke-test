@@ -181,13 +181,29 @@ def report_replica_events(project_id, search_term, location, days_ago=7, include
 
     all_events.sort(key=lambda x: x['timestamp'])
 
+    # Dynamically determine column widths
+    max_replica_id_len = len('Replica ID')
+    max_endpoint_id_len = len('Endpoint ID')
+
+    if all_events:
+        if include_replicas:
+            replica_ids = [str(e.get('replica_id', '')) for e in all_events]
+            if replica_ids:
+                max_replica_id_len = max(len(rid) for rid in replica_ids)
+                max_replica_id_len = max(max_replica_id_len, len('Replica ID'))
+
+        endpoint_ids = [str(e.get('endpoint_id', '')) for e in all_events]
+        if endpoint_ids:
+            max_endpoint_id_len = max(len(eid) for eid in endpoint_ids)
+            max_endpoint_id_len = max(max_endpoint_id_len, len('Endpoint ID'))
+
     print("\n--- Combined Replica Event Report (UTC) ---")
     header_parts = [f"{'Timestamp':<20}", f"{'Event':<18}"]
     if include_replicas:
-        header_parts.append(f"{'Replica ID':<55}")
+        header_parts.append(f"{'Replica ID':<{max_replica_id_len}}")
     
     header_parts.extend([
-        f"{'Endpoint ID':<22}", f"{'Machine':<15}", f"{'Accelerator':<25}",
+        f"{'Endpoint ID':<{max_endpoint_id_len}}", f"{'Machine':<15}", f"{'Accelerator':<25}",
         f"{'Acc. Count':<10}", f"{'Min Rep':<8}", f"{'Max Rep':<8}"
     ])
     
@@ -216,10 +232,10 @@ def report_replica_events(project_id, search_term, location, days_ago=7, include
 
         row_parts = [f"{row_data['timestamp']:<20}", f"{row_data['event_type']:<18}"]
         if include_replicas:
-            row_parts.append(f"{str(row_data['replica_id']):<55}")
+            row_parts.append(f"{str(row_data['replica_id']):<{max_replica_id_len}}")
         
         row_parts.extend([
-            f"{str(row_data['endpoint_id']):<22}", f"{str(row_data['machineType']):<15}",
+            f"{str(row_data['endpoint_id']):<{max_endpoint_id_len}}", f"{str(row_data['machineType']):<15}",
             f"{str(row_data['acceleratorType']):<25}", f"{str(row_data['acceleratorCount']):<10}",
             f"{str(row_data['minReplicaCount']):<8}", f"{str(row_data['maxReplicaCount']):<8}"
         ])
@@ -243,8 +259,14 @@ def calculate_and_report_cost(all_events, location):
             endpoint_events[endpoint_id] = []
         endpoint_events[endpoint_id].append(event)
 
+    # Determine the column width for Endpoint ID dynamically
+    max_endpoint_len = len('Endpoint ID')
+    if endpoint_events:
+        max_key_len = max(len(k) for k in endpoint_events.keys())
+        max_endpoint_len = max(max_key_len, max_endpoint_len)
+
     print("\n--- Endpoint Uptime and Cost Report ---")
-    header = f"{'Endpoint ID':<22} | {'Uptime (hours)':<15} | {'Est. Cost ($)':<15} | {'Machine':<15} | {'Min Rep':<8} | {'Max Rep':<8}"
+    header = f"{'Endpoint ID':<{max_endpoint_len}} | {'Uptime (hours)':<15} | {'Est. Cost ($)':<15} | {'Machine':<15} | {'Min Rep':<8} | {'Max Rep':<8}"
     print(header)
     print("-" * len(header))
 
@@ -294,13 +316,13 @@ def calculate_and_report_cost(all_events, location):
             estimated_cost = endpoint_total_duration_hours * machine_cost_per_hour * num_replicas
             total_estimated_cost += estimated_cost
             
-            print(f"{endpoint_id:<22} | {endpoint_total_duration_hours:<15.2f} | {estimated_cost:<15.2f} | {machine_info['machineType']:<15} | {machine_info['minReplicaCount']:<8} | {machine_info['maxReplicaCount']:<8}")
+            print(f"{endpoint_id:<{max_endpoint_len}} | {endpoint_total_duration_hours:<15.2f} | {estimated_cost:<15.2f} | {machine_info['machineType']:<15} | {machine_info['minReplicaCount']:<8} | {machine_info['maxReplicaCount']:<8}")
         
         elif is_running:
-            print(f"{endpoint_id:<22} | {'Still running':<15} | {'N/A':<15} | {machine_info['machineType']:<15} | {machine_info['minReplicaCount']:<8} | {machine_info['maxReplicaCount']:<8}")
+            print(f"{endpoint_id:<{max_endpoint_len}} | {'Still running':<15} | {'N/A':<15} | {machine_info['machineType']:<15} | {machine_info['minReplicaCount']:<8} | {machine_info['maxReplicaCount']:<8}")
 
     print("-" * len(header))
-    print(f"{'Totals':<22} | {total_uptime_hours:<15.2f} | {total_estimated_cost:<15.2f}")
+    print(f"{'Totals':<{max_endpoint_len}} | {total_uptime_hours:<15.2f} | {total_estimated_cost:<15.2f}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Report on replica creation and unload events.")

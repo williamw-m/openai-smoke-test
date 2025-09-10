@@ -172,3 +172,67 @@ multi-turn-chat-smoketest --api-key "<api_key>"  --num-users 5 --queries-per-use
 ```
 
 Logs are stored in `/src/smoke/stats/multi_turn/<model_name>.jsonl`
+
+## Vertex AI Deployment Log Auditing
+
+This script queries Google Cloud Logging to provide detailed reports on Vertex AI model deployments.
+It tracks the entire lifecycle of endpoints—from deployment to undeployment—and provides insights into
+uptime, resource configuration, and estimated costs.
+
+### Features
+
+- **Comprehensive Event Tracking**: Monitors 'Deploy Model', 'Download model' (replica creation),
+  and 'Undeploy Model' events.
+- **Detailed Timeline Report**: Displays a chronological log of all deployment-related activities,
+  including machine specs, accelerator details, and replica counts.
+- **Uptime and Cost Analysis**: Calculates the total operational hours for each endpoint and provides
+  an estimated cost based on a configurable pricing table.
+
+### Usage Examples
+
+1.  **Detailed Report for a Specific Model (Default Behavior)**:
+    ```bash
+    python3 audit_vertexai_deployment_logs.py --search-term "the-model-name"
+    ```
+
+2.  **Full Granular Report with Replica Messages**:
+    ```bash
+    python3 audit_vertexai_deployment_logs.py --search-term "the-model-name" --include-message
+    ```
+
+3.  **High-Level Summary of All Deployments (excluding replica events)**:
+    (Shows only deploy/undeploy events and the final uptime/cost report)
+    ```bash
+    python3 audit_vertexai_deployment_logs.py --no-replicas
+    ```
+
+### Command-Line Arguments
+
+| Argument          | Type      | Description                                                                              |
+| :---------------- | :-------- | :--------------------------------------------------------------------------------------- |
+| `--search-term`   | `str`     | **Required** (unless `--no-replicas` is used). The search term to filter replica creation events. |
+| `--no-replicas`   | `boolean` | Excludes replica-level download events from the report for a high-level summary.         |
+| `--include-message` | `boolean` | Includes the detailed message column for replica events.                                 |
+
+### Example Output
+
+```
+--- Endpoint Uptime and Cost Report ---
+Endpoint ID                                     | Uptime (hours)  | Est. Cost ($)   | Machine         | Min Rep  | Max Rep
+---------------------------------------------------------------------------------------------------------------------------
+2619126857315909632                             | 1.56            | 0.00            |                 | 0        | 0
+3063857320518746112                             | 0.13            | 0.00            |                 | 0        | 0
+3254134404775149568                             | 0.10            | 0.00            |                 | 0        | 0
+3763604112621436928                             | 5.85            | 0.00            |                 | 0        | 0
+4216778825125593088                             | 1.21            | 0.00            |                 | 0        | 0
+7373239213958889472                             | 0.16            | 0.00            |                 | 0        | 0
+818249956321132544                              | 3.75            | 330.04          | a3-highgpu-8g   | 1        | 0
+mg-endpoint-6a72912c-4404-4dc5-bb7a-a8f766fa041c | 0.96            | 84.87           | a3-highgpu-8g   | 1        | 0
+mg-endpoint-bcc89773-a493-46fb-a134-e4d0d7af6922 | 0.49            | 0.00            | a3-highgpu-4g   | 1        | 1
+---------------------------------------------------------------------------------------------------------------------------
+Totals                                          | 14.21           | 414.91
+```
+
+> **Note**: The pricing data in this script is for narrow range of use cases only. For accurate cost
+>       calculations, please update the `PRICING_DATA` dictionary with the latest official rates
+>       from the Google Cloud pricing pages.
