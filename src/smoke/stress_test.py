@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+from dotenv import load_dotenv
 import yaml
 import json
 import csv
@@ -148,6 +149,7 @@ async def results_writer(results_queue, output_file, metrics):
 
 
 async def main():
+    load_dotenv()
     parser = argparse.ArgumentParser(description="Run a stress test on an OpenAI-compatible endpoint.")
     parser.add_argument("--test-config", required=True, help="Path to the stress-test.yaml file.")
     parser.add_argument("--feature", required=True, help="The feature to test (e.g., 'chatbot').")

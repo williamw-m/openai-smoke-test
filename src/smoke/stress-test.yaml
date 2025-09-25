@@ -88,7 +88,7 @@ test_config:
 vendors:
   gke:
     api_base: "http://localhost:8000/v1"
-    api_key_env: "VERTEX_API_KEY"
+    api_key_env: "GKE_API_KEY"
     model_config:
       Qwen/Qwen1.5-7B-Chat-AWQ:
         max_tokens: 1000
