@@ -159,6 +159,30 @@ This table details the configuration options for the summarization and evaluatio
 | `llm_unieval_scoring.system_prompt`| `str` | The system prompt for the evaluator model. | `"You are a meticulous..."` |
 | `llm_unieval_scoring.user_prompt`| `str` | The user prompt for the evaluator model, defining criteria and format. | `"Carefully evaluate the..."` |
 
+## How to run stress test
+
+### Example
+
+```bash
+python src/smoke/stress_test.py --test-config src/smoke/stress-test.yaml --feature chatbot --vendor openapi-compat-api --model "openai/gpt-oss-120B" --mode stress
+```
+
+After the stress test is complete, you can aggregate the benchmark logs using the following command:
+
+```bash
+python3 src/smoke/aggregate_benchmark_logs.py --run-directory $benchmark_output_dir$ --test-config src/smoke/stress-test.yaml
+```
+
+### Using a different vendor
+
+To use a different vendor, such as `vertexai`, you will need to update the `--vendor` and `--model` arguments. You may also need to update the `api_base` in `config.yml` or `stress-test.yaml`.
+
+For example:
+
+```bash
+python src/smoke/stress_test.py --test-config src/smoke/stress-test.yaml --feature chatbot --vendor vertexai --model "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8" --mode stress
+```
+
 # Multi Turn Chat Testing
 
 Multi turn chat tests models with context, and simulates replying back to the same bot after its response. This command supports the `--start-with-context` to begin the conversation with a random context file defined in `/src/smoke/multi_turn_chat/data/initial-context/`
