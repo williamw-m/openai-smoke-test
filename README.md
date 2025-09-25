@@ -264,7 +264,7 @@ Totals                                          | 14.21           | 414.91
 ## GKE LLM Deployment
 
 ```bash
-./gke/gke_llm_start.sh -p "fx-gen-ai-sandbox" -t "$hf_secret_token" -f gke/deployments/qwen3-235b-fp8_h100.yaml -r us-central1 -z us-central1-a -o qwen3-235b-fp8-h100-pool-2 -m a3-highgpu-4g -a "type=nvidia-h100-80gb,count=4" --max-nodes 1
+./gke/gke_llm_start.sh -p "fx-gen-ai-sandbox" -t "$hf_secret_token" -f gke/deployments/qwen3-235b-fp8_h100.yaml -r us-central1 -z us-central1-a -o qwen3-235b-fp8-h100-pool -m a3-highgpu-4g -a "type=nvidia-h100-80gb,count=4" --max-nodes 1
 ```
 
 > **Note on Instance Types:**
