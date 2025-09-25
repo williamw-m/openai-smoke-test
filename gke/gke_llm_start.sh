@@ -172,6 +172,29 @@ if [ "${SPOT_INSTANCE}" = true ] && [ -n "${RESERVATION_URL}" ] && [ "${RESERVAT
   exit 1
 fi
 
+# --- Custom Validations ---
+# H100 4g validation
+if [[ "${MACHINE_TYPE}" == "a3-highgpu-4g" ]] && [ "${SPOT_INSTANCE}" = false ]; then
+  echo "Error: Machine type 'a3-highgpu-4g' can only be used with Spot instances. Please add the --spot flag."
+  exit 1
+fi
+
+# B200 validation
+if [[ "${ACCELERATOR}" == *"b200"* ]]; then
+  if [ "${SPOT_INSTANCE}" = false ]; then
+    echo "Error: B200 accelerators are only available with Spot instances. Please add the --spot flag."
+    exit 1
+  fi
+  if [ "${REGION}" != "us-central1" ]; then
+    echo "Error: B200 accelerators are only available in the 'us-central1' region. Please set -r to 'us-central1'."
+    exit 1
+  fi
+  if [ "${ZONE}" != "us-central1-b" ]; then
+    echo "Error: B200 accelerators are only available in the 'us-central1-b' zone. Please set -z to 'us-central1-b'."
+    exit 1
+  fi
+fi
+
 # Check if YAML file exists
 if [ ! -f "${YAML_FILE}" ]; then
   echo "Error: YAML file '${YAML_FILE}' not found."
@@ -244,10 +267,7 @@ if [ "${NODE_POOL_EXISTS}" -ne 0 ]; then
     --node-locations "${ZONE}"
     --machine-type "${MACHINE_TYPE}"
     --accelerator "${ACCELERATOR}"
-    --enable-autoscaling
     --num-nodes=1
-    --min-nodes=0
-    --max-nodes="${MAX_NODES}"
     --shielded-secure-boot
     --shielded-integrity-monitoring
     --enable-gvnic
@@ -257,8 +277,8 @@ if [ "${NODE_POOL_EXISTS}" -ne 0 ]; then
     GCLOUD_CMD+=(--reservation-affinity=specific --reservation="${RESERVATION_URL}")
     echo "Creating node pool with reservation: ${RESERVATION_URL}"
   elif [ "${SPOT_INSTANCE}" = true ]; then
-    GCLOUD_CMD+=(--spot)
-    echo "Creating node pool using spot instances."
+    GCLOUD_CMD+=(--preemptible)
+    echo "Creating node pool using preemptible instances."
   else
     echo "Creating on-demand node pool."
   fi
