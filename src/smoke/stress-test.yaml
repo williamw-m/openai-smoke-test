@@ -86,11 +86,13 @@ test_config:
 
 # Section 2: Defines vendors to override or add to the base config.
 vendors:
-  vertexai:
-    api_base: "https://us-central1-aiplatform.googleapis.com/v1/projects/your-project-id/locations/us-central1/endpoints/your-endpoint-id"
+  gke:
+    api_base: "http://localhost:8000/v1"
     api_key_env: "VERTEX_API_KEY"
     model_config:
       Qwen/Qwen1.5-7B-Chat-AWQ:
+        max_tokens: 1000
+      Qwen/Qwen3-235B-A22B-Instruct-2507-FP8:
         max_tokens: 1000
 
 # Section 3: Defines the test scenarios or "features".

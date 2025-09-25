@@ -175,12 +175,12 @@ python3 src/smoke/aggregate_benchmark_logs.py --run-directory $benchmark_output_
 
 ### Using a different vendor
 
-To use a different vendor, such as `vertexai`, you will need to update the `--vendor` and `--model` arguments. You may also need to update the `api_base` in `config.yml` or `stress-test.yaml`.
+To use a different vendor, such as `gke`, you will need to update the `--vendor` and `--model` arguments. You may also need to update the `api_base` in `config.yml` or `stress-test.yaml`.
 
 For example:
 
 ```bash
-python src/smoke/stress_test.py --test-config src/smoke/stress-test.yaml --feature chatbot --vendor vertexai --model "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8" --mode stress
+python src/smoke/stress_test.py --test-config src/smoke/stress-test.yaml --feature chatbot --vendor gke --model "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8" --mode stress
 ```
 
 # Multi Turn Chat Testing
