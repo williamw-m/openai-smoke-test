@@ -88,7 +88,9 @@ async def worker(worker_id, client, prompt_generator, results_queue, semaphore, 
                 if last_chunk and hasattr(last_chunk, 'usage') and last_chunk.usage is not None:
                     input_tokens = last_chunk.usage.prompt_tokens
                     output_tokens = last_chunk.usage.completion_tokens
-                
+                    if hasattr(last_chunk.usage, 'prompt_tokens_details') and last_chunk.usage.prompt_tokens_details is not None:
+                        cached_tokens = last_chunk.usage.prompt_tokens_details.get('cached_tokens', -1)
+
                 result = {
                     "request_id": request_id,
                     "provider_name": run_config['vendor'],

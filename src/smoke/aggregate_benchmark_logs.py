@@ -83,6 +83,13 @@ def main():
         row['output_min_len'] = successful_requests['output_tokens'].min()
         row['output_max_len'] = successful_requests['output_tokens'].max()
 
+        # Cached Token Stats
+        row['cached_total_tokens'] = successful_requests['cached_tokens'].sum()
+        row['cached_avg_len'] = successful_requests['cached_tokens'].mean()
+        row['cached_stdev_len'] = successful_requests['cached_tokens'].std()
+        row['cached_min_len'] = successful_requests['cached_tokens'].min()
+        row['cached_max_len'] = successful_requests['cached_tokens'].max()
+
         # TTFT, User TPS, E2E Duration Stats
         for metric in ['ttft', 'user_tps', 'e2e_duration']:
             stats = calculate_statistics(successful_requests[metric])

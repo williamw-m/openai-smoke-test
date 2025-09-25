@@ -5,7 +5,7 @@ test_config:
   test_mode: "stress"
   concurrency_levels: [1, 2, 4, 8, 16, 32]
   qps_levels: [1, 2, 3, 4, 5] # Included for future QPS mode
-  stress_duration_seconds: 10
+  stress_duration_seconds: 60
 
   # Defines the raw, per-request metrics to be collected.
   per_request_metrics:
@@ -41,6 +41,11 @@ test_config:
     - output_min_len
     - output_max_len
     - output_total_tokens
+    - cached_avg_len
+    - cached_stdev_len
+    - cached_min_len
+    - cached_max_len
+    - cached_total_tokens
     - ttft_mean
     - ttft_stdev
     - ttft_p05
@@ -93,18 +98,29 @@ features:
   chatbot:
     note: "A general-purpose chatbot test."
     datasets:
-      - "short_qa_v1"
       - "goldenfox_5000_tokens"
       - "goldenfox_2000_tokens"
+      - "goldenfox_5000_tokens_long_response"
+      - "goldenfox_2000_tokens_long_response"
 
 # Section 4: A library of all available datasets.
 datasets:
   goldenfox_5000_tokens:
     note: "A dataset of 500 prompts with a minimum of 5000 tokens."
-    path: "src/smoke/data/generated_goldenfox_dataset_500_min_5000tokens.jsonl"
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_5000tokens.jsonl"
     type: "custom_messages_jsonl"
 
   goldenfox_2000_tokens:
     note: "A dataset of 500 prompts with a minimum of 2000 tokens."
-    path: "src/smoke/data/generated_goldenfox_dataset_500_min_2000tokens.jsonl"
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_2000tokens.jsonl"
+    type: "custom_messages_jsonl"
+
+  goldenfox_5000_tokens_long_response:
+    note: "A dataset of 500 prompts with a minimum of 5000 tokens and long responses."
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_5000tokens_long_response.jsonl"
+    type: "custom_messages_jsonl"
+
+  goldenfox_2000_tokens_long_response:
+    note: "A dataset of 500 prompts with a minimum of 2000 tokens and long responses."
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_2000tokens_long_response.jsonl"
     type: "custom_messages_jsonl"
