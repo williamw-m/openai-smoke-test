@@ -164,7 +164,7 @@ This table details the configuration options for the summarization and evaluatio
 ### Example
 
 ```bash
-python src/smoke/stress_test.py --test-config src/smoke/stress-test.yaml --feature chatbot --vendor openapi-compat-api --model "openai/gpt-oss-120B" --mode stress
+python src/smoke/stress_test.py --test-config src/smoke/stress-test.yaml --feature chatbot --vendor ollama --model "openai/gpt-oss-120B" --mode stress
 ```
 
 After the stress test is complete, you can aggregate the benchmark logs using the following command:
@@ -260,3 +260,17 @@ Totals                                          | 14.21           | 414.91
 > **Note**: The pricing data in this script is for narrow range of use cases only. For accurate cost
 >       calculations, please update the `PRICING_DATA` dictionary with the latest official rates
 >       from the Google Cloud pricing pages.
+
+## GKE LLM Deployment
+
+```bash
+./gke/gke_llm_start.sh -p "fx-gen-ai-sandbox" -t "$hf_secret_token" -f gke/deployments/qwen3-235b-fp8_h100.yaml -r us-central1 -z us-central1-a -o qwen3-235b-fp8-h100-pool-2 -m a3-highgpu-4g -a "type=nvidia-h100-80gb,count=4" --max-nodes 1
+```
+
+> **Note on Instance Types:**
+> The `gke/gke_llm_start.sh` script dynamically handles different instance provisioning types by creating a temporary deployment YAML.
+> - **On-Demand (Default):** If no specific flags are provided, the script provisions standard on-demand instances.
+> - **Spot Instances:** Use the `--spot` flag to provision a node pool with Spot VMs, which can provide cost savings. The deployment YAML must contain the appropriate `gke-spot` tolerations and node selectors.
+> - **Reservations:** Use the `-u <RESERVATION_URL>` flag to consume a specific reservation. This is useful for guaranteeing resource availability.
+>
+> The script automatically modifies the deployment YAML to match the chosen provisioning type, ensuring the correct node selectors and affinities are applied.
