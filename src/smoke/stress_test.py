@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+import random
 from dotenv import load_dotenv
 import yaml
 import json
@@ -68,21 +69,49 @@ async def worker(worker_id, client, prompt_generator, results_queue, semaphore, 
             first_token_time = None
             
             try:
-                stream = await client.chat.completions.create(
-                    model=run_config['model_name'],
-                    messages=prompt_data['payload']['messages'],
-                    max_tokens=run_config['max_tokens'],
-                    stream=True
-                )
-                
+                messages = prompt_data['payload']['messages']
+                if config.get('test_config', {}).get('bust_kv_cache', False):
+                    probability = config['test_config'].get('bust_cache_probability', 100)
+                    if random.uniform(0, 100) < probability:
+                        cache_bust_token = f"[IGNORE THIS CACHE BUST TOKEN: {uuid.uuid4()}]"
+                        
+                        system_message_found = False
+                        for message in messages:
+                            if message.get('role') == 'system':
+                                message['content'] = f"{cache_bust_token}\n{message['content']}"
+                                system_message_found = True
+                                break
+                        
+                        if not system_message_found:
+                            messages.insert(0, {'role': 'system', 'content': cache_bust_token})
+
                 output_tokens = -1
                 input_tokens = -1
                 cached_tokens = -1
                 last_chunk = None
-                async for chunk in stream:
+
+                if run_config.get("streaming", False):
+                    stream = await client.chat.completions.create(
+                        model=run_config['model_name'],
+                        messages=messages,
+                        max_tokens=run_config['max_tokens'],
+                        stream=True,
+                        stream_options={"include_usage": True}
+                    )
+                    async for chunk in stream:
+                        if first_token_time is None:
+                            first_token_time = time.monotonic()
+                        last_chunk = chunk
+                else:
+                    response = await client.chat.completions.create(
+                        model=run_config['model_name'],
+                        messages=messages,
+                        max_tokens=run_config['max_tokens'],
+                        stream=False
+                    )
                     if first_token_time is None:
                         first_token_time = time.monotonic()
-                    last_chunk = chunk
+                    last_chunk = response
 
                 end_time = time.monotonic()
 
@@ -156,6 +185,7 @@ async def main():
     parser.add_argument("--vendor", required=True, help="The vendor to test (e.g., 'vertexai').")
     parser.add_argument("--model", required=True, help="The model to test (e.g., 'qwen3-1.5').")
     parser.add_argument("--mode", required=True, choices=['stress', 'qps'], help="The test mode to run.")
+    parser.add_argument("--streaming", action="store_true", help="Enable streaming mode for responses.")
     args = parser.parse_args()
 
     # 1. Load and Validate Config
@@ -204,6 +234,10 @@ async def main():
 
     client = AsyncOpenAI(api_key=api_key, base_url=vendor_config['api_base'])
     
+    if config.get('test_config', {}).get('bust_kv_cache', False):
+        prob = config['test_config'].get('bust_cache_probability', 100)
+        print(f"INFO: KV cache busting is ENABLED for ~{prob}% of requests.")
+
     # 3. Execute Test based on mode
     if args.mode == 'stress':
         levels = config['test_config']['concurrency_levels']
@@ -232,7 +266,8 @@ async def main():
             run_config = {
                 'vendor': args.vendor, 'model': args.model, 'mode': args.mode, 'level': level,
                 'model_name': args.model,
-                'max_tokens': model_config.get('max_tokens')
+                'max_tokens': model_config.get('max_tokens'),
+                'streaming': args.streaming
             }
 
             # Start workers

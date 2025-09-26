@@ -6,6 +6,8 @@ test_config:
   concurrency_levels: [1, 2, 4, 8, 16, 32]
   qps_levels: [1, 2, 3, 4, 5] # Included for future QPS mode
   stress_duration_seconds: 60
+  bust_kv_cache: true
+  bust_cache_probability: 100
 
   # Defines the raw, per-request metrics to be collected.
   per_request_metrics:
@@ -94,35 +96,45 @@ vendors:
         max_tokens: 1000
       Qwen/Qwen3-235B-A22B-Instruct-2507-FP8:
         max_tokens: 1000
+      Qwen/Qwen3-235B-A22B-Instruct-2507:
+        max_tokens: 1000
+  vertexai:
+    api_base: "https://us-south1-aiplatform.googleapis.com/v1/projects/fx-gen-ai-sandbox/locations/us-south1/endpoints/openapi"
+    api_key_env: "VERTEX_AI_API_KEY"
+    model_config:
+      qwen/qwen3-235b-a22b-instruct-2507-maas:
+        max_tokens: 1000
+      qwen/qwen3-next-80b-a3b-instruct-maas:
+        max_tokens: 1000
 
 # Section 3: Defines the test scenarios or "features".
 features:
   chatbot:
     note: "A general-purpose chatbot test."
     datasets:
-      - "goldenfox_5000_tokens"
-      - "goldenfox_2000_tokens"
       - "goldenfox_5000_tokens_long_response"
       - "goldenfox_2000_tokens_long_response"
+      - "goldenfox_5000_tokens"
+      - "goldenfox_2000_tokens"
 
 # Section 4: A library of all available datasets.
 datasets:
   goldenfox_5000_tokens:
     note: "A dataset of 500 prompts with a minimum of 5000 tokens."
-    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_5000tokens.jsonl"
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_5000tokens.jsonl_truncated_at_11000.jsonl"
     type: "custom_messages_jsonl"
 
   goldenfox_2000_tokens:
     note: "A dataset of 500 prompts with a minimum of 2000 tokens."
-    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_2000tokens.jsonl"
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_2000tokens.jsonl_truncated_at_11000.jsonl"
     type: "custom_messages_jsonl"
 
   goldenfox_5000_tokens_long_response:
     note: "A dataset of 500 prompts with a minimum of 5000 tokens and long responses."
-    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_5000tokens_long_response.jsonl"
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_5000tokens_long_response.jsonl_truncated_at_11000.jsonl"
     type: "custom_messages_jsonl"
 
   goldenfox_2000_tokens_long_response:
     note: "A dataset of 500 prompts with a minimum of 2000 tokens and long responses."
-    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_2000tokens_long_response.jsonl"
+    path: "src/smoke/multi_turn_chat/data/generated_goldenfox_dataset_500_min_2000tokens_long_response.jsonl_truncated_at_11000.jsonl"
     type: "custom_messages_jsonl"
