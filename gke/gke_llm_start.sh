@@ -329,7 +329,7 @@ else
   sed -i.bak '/- key: cloud.google.com\/gke-spot/,/effect: NoSchedule/d' "${TEMP_YAML}"
 fi
 
-echo "Applying final deployment YAML..."
+echo "Applying final deployment YAML...${TEMP_YAML}"
 kubectl apply -f "${TEMP_YAML}"
 
 echo "### Step 8: Waiting for Deployment to be available ###"
