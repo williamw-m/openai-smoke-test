@@ -267,6 +267,9 @@ async def async_main(args):
 
     config = load_config()
     summarization_config = config.get("features", {}).get("summarization", {})
+    # Override with command-line arguments
+    summarization_config["project_id"] = args.project_id
+    summarization_config["region"] = args.region
     use_dataset, dataset_name = summarization_config.get("use_dataset", False), summarization_config.get("dataset_name", "")
     log_stats = summarization_config.get("log_stats", False)
 
@@ -575,6 +578,18 @@ def main():
         "--debug",
         action="store_true",
         help="Show extra debugging information",
+    )
+    parser.add_argument(
+        "--project-id",
+        type=str,
+        default="fx-gen-ai-sandbox",
+        help="Google Cloud project ID for Mistral",
+    )
+    parser.add_argument(
+        "--region",
+        type=str,
+        default="us-central1",
+        help="Google Cloud region for Mistral",
     )
 
     args = parser.parse_args()

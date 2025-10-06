@@ -23,10 +23,12 @@ installs the tool locally in editable mode.
 
 ## Example Usage
 
+### Local Ollama Instance
+
 Below is a light run against a local Ollama instance.
 
 ```bash
- openai-smoke-test git:(main) ✗ .venv/bin/openai-smoketest --api-key ollama --api-base http://localhost:11434/v1 --model granite3.3:8b --num-users 2 --queries-per-user 1
+.venv/bin/openai-smoketest --api-key ollama --api-base http://localhost:11434/v1 --model granite3.3:8b --num-users 2 --queries-per-user 1
 Running queries: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:41<00:00, 20.67s/it]
 
 --- SUMMARY REPORT ---
@@ -42,6 +44,32 @@ Failed Queries: 0
 +-------------------------+--------+-------+-------+
 Successful
 ```
+
+### Mistral via Google Cloud Vertex AI
+
+Run Mistral models using Google Cloud service account authentication:
+
+```bash
+# Basic usage (uses default project-id: fx-gen-ai-sandbox)
+.venv/bin/openai-smoketest --model mistral-small-2503 --num-users 5 --queries-per-user 10
+
+# With custom project ID and region
+.venv/bin/openai-smoketest \
+  --model mistral-small-2503 \
+  --project-id YOUR_GCP_PROJECT_ID \
+  --region us-central1 \
+  --num-users 5 \
+  --queries-per-user 10
+
+# Quick single test
+.venv/bin/openai-smoketest \
+  --model mistral-small-2503 \
+  --project-id YOUR_GCP_PROJECT_ID \
+  --num-users 1 \
+  --queries-per-user 1
+```
+
+**Note:** Requires a Google Cloud service account key file (`creds.json`) in the project root. See [Summarization Config](#summarization-config) for setup details.
 
 ## Usage of Inference Test Script
 
@@ -69,7 +97,7 @@ python src/smoke/quick_test.py --config PATH-TO-custom-quick_test_multiturn_conf
 Below is with added summarization scores, running 5 queries simulatenously:
 
 ```bash
-openai-smoke-test % openai-smoketest --model mistral-small-2503 --num-users 5
+openai-smoke-test % openai-smoketest --model mistral-small-2503 --num-users 5 --project-id YOUR_PROJECT_ID --region us-central1
 Running queries:   0%|                                        | 0/50 [00:00<?, ?it/s]Refreshing Mistral access token from service account...
 Token refreshed successfully.
 Running queries: 100%|███████████████████████████████| 50/50 [02:00<00:00,  2.41s/it]
@@ -135,6 +163,9 @@ This table details the configuration options for the summarization and evaluatio
 | `error_on_threshold_fails` | `bool` | If true, throws an error if any threshold check fails | `false` |
 | `stream` | `bool` | If true, streams the response to track Time To First Token (TTFT). | `true` |
 | `service_account_file` | `str` | Path to the Google Cloud service account file for Mistral authentication. | `"creds.json"` |
+| **Command-line Arguments** | | | |
+| `--project-id` | `str` | Google Cloud project ID for Mistral (overrides config file). | `"fx-gen-ai-sandbox"` |
+| `--region` | `str` | Google Cloud region for Mistral (overrides config file). | `"us-central1"` |
 | **Performance Thresholds** | | | |
 | `metric_threshold.ttft` | `float` | Max allowed Time To First Token in seconds (lower is better). | `1.0` |
 | `metric_threshold.per_query_tps` | `int` | Min required Tokens Per Second (higher is better). | `100` |

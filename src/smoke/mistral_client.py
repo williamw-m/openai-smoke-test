@@ -46,8 +46,8 @@ class MistralClient:
             raise
 
     async def completion(self, model_name: str, messages: List[dict], temperature: float, top_p: float, stop_event: asyncio.Event):
-        REGION = "us-central1"
-        PROJECT_ID = "fx-gen-ai-sandbox"
+        REGION = self.config.get("region", "us-central1")
+        PROJECT_ID = self.config.get("project_id", "fx-gen-ai-sandbox")
 
         first_token_time = None
         stream = self.config.get("stream")
