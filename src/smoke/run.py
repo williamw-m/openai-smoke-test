@@ -582,7 +582,7 @@ def main():
     parser.add_argument(
         "--project-id",
         type=str,
-        default="src/smoke/run.py",
+        default="round-bloom-474016-c7",
         help="Google Cloud project ID for Mistral",
     )
     parser.add_argument(
