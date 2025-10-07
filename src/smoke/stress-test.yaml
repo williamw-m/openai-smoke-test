@@ -99,7 +99,7 @@ vendors:
       Qwen/Qwen3-235B-A22B-Instruct-2507:
         max_tokens: 1000
   vertexai:
-    api_base: "https://us-south1-aiplatform.googleapis.com/v1/projects/fx-gen-ai-sandbox/locations/us-south1/endpoints/openapi"
+    api_base: "https://us-south1-aiplatform.googleapis.com/v1/projects/round-bloom-474016-c7/locations/us-south1/endpoints/openapi"
     api_key_env: "VERTEX_AI_API_KEY"
     model_config:
       qwen/qwen3-235b-a22b-instruct-2507-maas:

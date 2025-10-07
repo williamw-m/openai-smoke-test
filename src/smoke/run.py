@@ -582,7 +582,7 @@ def main():
     parser.add_argument(
         "--project-id",
         type=str,
-        default="fx-gen-ai-sandbox",
+        default="src/smoke/run.py",
         help="Google Cloud project ID for Mistral",
     )
     parser.add_argument(

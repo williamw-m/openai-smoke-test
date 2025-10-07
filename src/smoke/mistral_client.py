@@ -47,7 +47,7 @@ class MistralClient:
 
     async def completion(self, model_name: str, messages: List[dict], temperature: float, top_p: float, stop_event: asyncio.Event):
         REGION = self.config.get("region", "us-central1")
-        PROJECT_ID = self.config.get("project_id", "fx-gen-ai-sandbox")
+        PROJECT_ID = self.config.get("project_id", "round-bloom-474016-c7")
 
         first_token_time = None
         stream = self.config.get("stream")
@@ -68,7 +68,10 @@ class MistralClient:
         async with aiohttp.ClientSession() as session:
             async with session.post(url=url, json=payload, headers=headers, ssl=self.ssl_context) as response:
                 if response.status != 200:
+                    error_body = await response.text()
                     print(f"Request failed with status code: {response.status}")
+                    print(f"URL: {url}")
+                    print(f"Error details: {error_body}")
                     return "", first_token_time
 
                 if stream:

@@ -340,7 +340,7 @@ if __name__ == "__main__":
     if args.include_message and not include_replicas:
         print("Warning: --include-message has no effect when --no-replicas is specified.", file=sys.stderr)
 
-    PROJECT_ID = "fx-gen-ai-sandbox"
+    PROJECT_ID = "round-bloom-474016-c7"
     LOCATION = "us-west1"
     DAYS_TO_SEARCH = 7
 

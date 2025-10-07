@@ -50,7 +50,7 @@ Successful
 Run Mistral models using Google Cloud service account authentication:
 
 ```bash
-# Basic usage (uses default project-id: fx-gen-ai-sandbox)
+# Basic usage (uses default project-id: round-bloom-474016-c7)
 .venv/bin/openai-smoketest --model mistral-small-2503 --num-users 5 --queries-per-user 10
 
 # With custom project ID and region
@@ -164,7 +164,7 @@ This table details the configuration options for the summarization and evaluatio
 | `stream` | `bool` | If true, streams the response to track Time To First Token (TTFT). | `true` |
 | `service_account_file` | `str` | Path to the Google Cloud service account file for Mistral authentication. | `"creds.json"` |
 | **Command-line Arguments** | | | |
-| `--project-id` | `str` | Google Cloud project ID for Mistral (overrides config file). | `"fx-gen-ai-sandbox"` |
+| `--project-id` | `str` | Google Cloud project ID for Mistral (overrides config file). | `"round-bloom-474016-c7"` |
 | `--region` | `str` | Google Cloud region for Mistral (overrides config file). | `"us-central1"` |
 | **Performance Thresholds** | | | |
 | `metric_threshold.ttft` | `float` | Max allowed Time To First Token in seconds (lower is better). | `1.0` |
@@ -295,7 +295,7 @@ Totals                                          | 14.21           | 414.91
 ## GKE LLM Deployment
 
 ```bash
-./gke/gke_llm_start.sh -p "fx-gen-ai-sandbox" -t "$hf_secret_token" -f gke/deployments/qwen3-235b-fp8_h100.yaml -r us-central1 -z us-central1-a -o qwen3-235b-fp8-h100-pool -m a3-highgpu-4g -a "type=nvidia-h100-80gb,count=4" --max-nodes 1
+./gke/gke_llm_start.sh -p "round-bloom-474016-c7" -t "$hf_secret_token" -f gke/deployments/qwen3-235b-fp8_h100.yaml -r us-central1 -z us-central1-a -o qwen3-235b-fp8-h100-pool -m a3-highgpu-4g -a "type=nvidia-h100-80gb,count=4" --max-nodes 1
 ```
 
 > **Note on Instance Types:**
