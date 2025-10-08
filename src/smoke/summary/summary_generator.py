@@ -28,7 +28,10 @@ class SummaryGenerator:
         user_prompt = self.config.get("user_prompt_template", "{text}").replace("{text}", text)
 
         first_token_time = None
-        if "mistral" in model_name.lower():
+        # Only use Mistral Vertex AI client if NOT using custom API and model contains "mistral"
+        use_mistral_vertex = "mistral" in model_name.lower() and not self.config.get("use_custom_api", False)
+
+        if use_mistral_vertex:
             try:
                 summary, first_token_time = await self.mistral_client.completion(
                     model_name,

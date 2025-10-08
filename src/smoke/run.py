@@ -303,6 +303,8 @@ async def async_main(args):
     openai_client = openai.AsyncOpenAI(
         api_key=args.api_key, base_url=args.api_base if args.api_base else None
     )
+    # Pass whether we're using a custom API base to the generator
+    summarization_config["use_custom_api"] = args.api_base is not None
     summary_generator = SummaryGenerator(openai_client, summarization_config)
     summary_evaluator = SummaryEvaluator(summarization_config.get("llm_unieval_scoring", {})) if use_dataset else None
 
