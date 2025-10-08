@@ -35,15 +35,11 @@ class SummaryGenerator:
                     [
                         {
                             "role": "system",
-                            "content": {
-                                "type": "text", "text": system_prompt
-                            }
+                            "content": system_prompt
                         },
                         {
                             "role": "user",
-                            "content": {
-                                "type": "text", "text": user_prompt
-                            }
+                            "content": user_prompt
                         }
                     ],
                     self.config.get("temperature", 0.1),
