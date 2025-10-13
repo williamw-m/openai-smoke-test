@@ -95,9 +95,11 @@ vendors:
       mistral:7b:
         max_tokens: 500
   gke:
-    api_base: "http://localhost:8000/v1"
+    api_base: "http://localhost:11434/v1"
     api_key_env: "GKE_API_KEY"
     model_config:
+      mistral:7b:
+        max_tokens: 500
       Qwen/Qwen1.5-7B-Chat-AWQ:
         max_tokens: 1000
       Qwen/Qwen3-235B-A22B-Instruct-2507-FP8:
