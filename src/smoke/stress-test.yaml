@@ -88,6 +88,12 @@ test_config:
 
 # Section 2: Defines vendors to override or add to the base config.
 vendors:
+  ollama:
+    api_base: "http://localhost:11434/v1"
+    api_key_env: "OLLAMA_API_KEY"
+    model_config:
+      mistral:7b:
+        max_tokens: 500
   gke:
     api_base: "http://localhost:8000/v1"
     api_key_env: "GKE_API_KEY"
