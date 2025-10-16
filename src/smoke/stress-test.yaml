@@ -100,6 +100,8 @@ vendors:
     model_config:
       mistral:7b:
         max_tokens: 500
+      qwen3:30b:
+        max_tokens: 1000
       qwen:7b:
         max_tokens: 1000
       Qwen/Qwen1.5-7B-Chat-AWQ:

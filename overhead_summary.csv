@@ -1,0 +1,5 @@
+Metric,Min Overhead %,Max Overhead %,Mean Overhead %
+TTFT,-0.71,3.01,1.14
+End-to-End Latency,-0.71,3.01,1.19
+Per-Request TPS,-2.93,6.85,-0.04
+Overall TPS,-4.74,-0.72,-2.53
