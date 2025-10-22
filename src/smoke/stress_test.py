@@ -232,7 +232,7 @@ async def main():
     if not api_key:
         raise ValueError(f"API key environment variable '{vendor_config['api_key_env']}' not set.")
 
-    client = AsyncOpenAI(api_key=api_key, base_url=vendor_config['api_base'])
+    client = AsyncOpenAI(api_key=api_key, base_url=vendor_config['api_base'], timeout=300.0)
     
     if config.get('test_config', {}).get('bust_kv_cache', False):
         prob = config['test_config'].get('bust_cache_probability', 100)
