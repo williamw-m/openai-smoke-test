@@ -10,6 +10,7 @@ import time
 import uuid
 from datetime import datetime
 from openai import AsyncOpenAI
+import httpx
 from tqdm import tqdm
 
 async def load_prompts(datasets_config, feature_datasets):
@@ -232,7 +233,9 @@ async def main():
     if not api_key:
         raise ValueError(f"API key environment variable '{vendor_config['api_key_env']}' not set.")
 
-    client = AsyncOpenAI(api_key=api_key, base_url=vendor_config['api_base'], timeout=300.0)
+    # Create httpx client with extended timeout to match OpenAI client timeout
+    http_client = httpx.AsyncClient(timeout=300.0)
+    client = AsyncOpenAI(api_key=api_key, base_url=vendor_config['api_base'], timeout=300.0, http_client=http_client)
     
     if config.get('test_config', {}).get('bust_kv_cache', False):
         prob = config['test_config'].get('bust_cache_probability', 100)
