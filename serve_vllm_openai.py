@@ -17,7 +17,6 @@ fastapi_app = FastAPI()
 
 
 @serve.deployment(
-    route_prefix="/",
     ray_actor_options={"num_gpus": 1, "num_cpus": 2},
 )
 @serve.ingress(fastapi_app)
