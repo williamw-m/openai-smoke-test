@@ -216,7 +216,7 @@ class VLLMOpenAI:
 
 
 # Deployment graph for `serve run`
-deployment = VLLMOpenAI.bind(
+app = VLLMOpenAI.bind(
     model_name="mistralai/Mistral-7B-Instruct-v0.2",
     tensor_parallel_size=1,
     dtype="auto",
