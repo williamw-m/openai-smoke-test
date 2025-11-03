@@ -9,17 +9,13 @@ from fastapi.responses import JSONResponse
 from starlette.responses import StreamingResponse
 from transformers import AutoTokenizer
 from vllm import SamplingParams, AsyncLLMEngine
-from vllm.engine.arg_utils import EngineArgs
+from vllm.engine.arg_utils import AsyncEngineArgs
 from ray import serve
-
-
-fastapi_app = FastAPI()
 
 
 @serve.deployment(
     ray_actor_options={"num_gpus": 1, "num_cpus": 2},
 )
-@serve.ingress(fastapi_app)
 class VLLMOpenAI:
     def __init__(
         self,
@@ -30,18 +26,23 @@ class VLLMOpenAI:
         gpu_memory_utilization: float = 0.9,
     ):
         self.model_name = model_name
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        engine_args = EngineArgs(
+        self.app = FastAPI()
+
+        # Register routes
+        self.app.get("/v1/models")(self.list_models)
+        self.app.post("/v1/chat/completions")(self.chat_completions)
+
+        # Model initialization
+        engine_args = AsyncEngineArgs(
             model=model_name,
             tensor_parallel_size=tensor_parallel_size,
             dtype=dtype,
             max_model_len=max_model_len,
             gpu_memory_utilization=gpu_memory_utilization,
         )
-        # Async engine enables token-by-token streaming
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    @fastapi_app.get("/v1/models")
     async def list_models(self):
         now = int(time.time())
         data = [
@@ -54,7 +55,6 @@ class VLLMOpenAI:
         ]
         return JSONResponse({"object": "list", "data": data})
 
-    @fastapi_app.post("/v1/chat/completions")
     async def chat_completions(self, request: Request):
         body: Dict[str, Any] = await request.json()
 
@@ -89,11 +89,11 @@ class VLLMOpenAI:
 
         request_id = f"req-{uuid.uuid4()}"
 
-        # Add request to engine
-        await self.engine.add_request(
-            request_id=request_id,
+        # Generate using engine
+        results_generator = self.engine.generate(
             prompt=prompt,
             sampling_params=params,
+            request_id=request_id,
         )
 
         # Streaming path: send SSE deltas
@@ -122,7 +122,7 @@ class VLLMOpenAI:
                 prompt_tokens = 0
                 completion_tokens = 0
 
-                async for output in self.engine.get_request_iterator(request_id):
+                async for output in results_generator:
                     # prompt tokens are available on every output
                     if hasattr(output, "prompt_token_ids") and output.prompt_token_ids is not None:
                         prompt_tokens = len(output.prompt_token_ids)
@@ -180,7 +180,7 @@ class VLLMOpenAI:
         final_text = ""
         prompt_tokens = 0
         completion_tokens = 0
-        async for output in self.engine.get_request_iterator(request_id):
+        async for output in results_generator:
             if hasattr(output, "prompt_token_ids") and output.prompt_token_ids is not None:
                 prompt_tokens = len(output.prompt_token_ids)
             if not output.outputs:
@@ -210,9 +210,13 @@ class VLLMOpenAI:
         }
         return JSONResponse(resp)
 
+    async def __call__(self, request: Request):
+        """Handle all incoming requests through FastAPI app"""
+        return await self.app(request.scope, request.receive, request._send)
+
 
 # Deployment graph for `serve run`
-app = VLLMOpenAI.bind(
+deployment = VLLMOpenAI.bind(
     model_name="mistralai/Mistral-7B-Instruct-v0.2",
     tensor_parallel_size=1,
     dtype="auto",
