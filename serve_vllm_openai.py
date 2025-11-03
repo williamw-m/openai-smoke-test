@@ -18,7 +18,7 @@ class VLLMDeployment:
         model_name: str = "mistralai/Mistral-7B-Instruct-v0.2",
         tensor_parallel_size: int = 1,
         dtype: str = "auto",
-        max_model_len: int = 8192,
+        max_model_len: int = 16384,
         gpu_memory_utilization: float = 0.9,
     ):
         self.model_name = model_name
