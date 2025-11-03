@@ -3,19 +3,15 @@ import time
 import uuid
 from typing import Any, Dict, List
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, StreamingResponse
 from ray import serve
 from transformers import AutoTokenizer
 from vllm import AsyncLLMEngine, SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 
 
-app = FastAPI()
-
-
 @serve.deployment(ray_actor_options={"num_gpus": 1, "num_cpus": 2})
-@serve.ingress(app)
 class VLLMDeployment:
     def __init__(
         self,
@@ -38,7 +34,6 @@ class VLLMDeployment:
         self.engine = AsyncLLMEngine.from_engine_args(engine_args)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    @app.get("/v1/models")
     async def list_models(self):
         return JSONResponse({
             "object": "list",
@@ -50,13 +45,13 @@ class VLLMDeployment:
             }]
         })
 
-    @app.post("/v1/chat/completions")
-    async def chat_completions(self, request: Request):
-        body: Dict[str, Any] = await request.json()
-
+    async def chat_completions(self, body: Dict[str, Any]):
         messages: List[Dict[str, str]] = body.get("messages", [])
         if not messages:
-            raise HTTPException(status_code=400, detail="messages required")
+            return JSONResponse(
+                {"error": "messages required"},
+                status_code=400
+            )
 
         # Apply chat template
         prompt = self.tokenizer.apply_chat_template(
@@ -155,6 +150,22 @@ class VLLMDeployment:
                 "total_tokens": prompt_tokens + completion_tokens,
             },
         })
+
+    async def __call__(self, request: Request):
+        """Route requests based on path and method"""
+        path = request.url.path
+        method = request.method
+
+        if path == "/v1/models" and method == "GET":
+            return await self.list_models()
+        elif path == "/v1/chat/completions" and method == "POST":
+            body = await request.json()
+            return await self.chat_completions(body)
+        else:
+            return JSONResponse(
+                {"error": f"Unknown endpoint: {method} {path}"},
+                status_code=404
+            )
 
 
 entrypoint = VLLMDeployment.bind(
