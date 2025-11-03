@@ -94,6 +94,14 @@ vendors:
     model_config:
       mistral:7b:
         max_tokens: 500
+  vllm:
+    api_base: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
+    model_config:
+      mistralai/Mistral-7B-Instruct-v0.2:
+        max_tokens: 1000
+      qwen/qwen3-8b-instruct:
+        max_tokens: 1000
   gke:
     api_base: "http://localhost:11434/v1"
     api_key_env: "GKE_API_KEY"
