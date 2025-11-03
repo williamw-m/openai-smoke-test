@@ -172,6 +172,6 @@ entrypoint = VLLMDeployment.bind(
     model_name="mistralai/Mistral-7B-Instruct-v0.2",
     tensor_parallel_size=1,
     dtype="auto",
-    max_model_len=8192,
+    max_model_len=16384,
     gpu_memory_utilization=0.9,
 )
