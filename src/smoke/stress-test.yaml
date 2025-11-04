@@ -5,7 +5,7 @@ test_config:
   test_mode: "stress"
   concurrency_levels: [1, 2, 4, 8, 16, 32]
   qps_levels: [1, 2, 3, 4, 5] # Included for future QPS mode
-  stress_duration_seconds: 60
+  stress_duration_seconds: 300
   bust_kv_cache: true
   bust_cache_probability: 100
 
